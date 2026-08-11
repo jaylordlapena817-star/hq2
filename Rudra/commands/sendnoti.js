@@ -1,16 +1,17 @@
 module.exports.config = {
     name: "sendnoti",
-    version: "2.0.2",
+    version: "2.1.0",
     hasPermssion: 2,
     credits: "IKnowYou",
-    description: "Automatically sends an announcement",
+    description: "Send notification to current group or automatically to all groups",
     commandCategory: "Admin",
-    usages: "[start/stop] [Text]",
+    usages: "[here/start/stop] [Text]",
     cooldowns: 5
 };
 
 module.exports.languages = {
     "en": {
+        here: "✅ Test notification sent to this group.",
         start: "✅ Auto notification started.",
         stop: "🛑 Auto notification stopped.",
         noRunning: "⚠️ No auto notification is currently running.",
@@ -74,6 +75,38 @@ module.exports.run = async ({
 
 
     // ========================================
+    // SEND HERE
+    // ========================================
+
+    if (action === "here") {
+
+        const message =
+            args.slice(1).join(" ");
+
+        if (!message) {
+
+            return api.sendMessage(
+                getText("noMessage"),
+                event.threadID
+            );
+
+        }
+
+        const randomID =
+            generateMessageID();
+
+        const finalMessage =
+            `${message}\n\n` +
+            `[ID: ${randomID}]`;
+
+        return api.sendMessage(
+            finalMessage,
+            event.threadID
+        );
+    }
+
+
+    // ========================================
     // STOP
     // ========================================
 
@@ -110,6 +143,7 @@ module.exports.run = async ({
 
         return api.sendMessage(
             "Usage:\n\n" +
+            "sendnoti here <message>\n" +
             "sendnoti start <message>\n" +
             "sendnoti stop",
             event.threadID
@@ -139,7 +173,6 @@ module.exports.run = async ({
     const message =
         args.slice(1).join(" ");
 
-
     if (!message) {
 
         return api.sendMessage(
@@ -151,10 +184,11 @@ module.exports.run = async ({
 
 
     // ========================================
-    // SAVE PURE MESSAGE
+    // SAVE MESSAGE
     // ========================================
 
-    global.sendNotiMessage = message;
+    global.sendNotiMessage =
+        message;
 
 
     // ========================================
@@ -166,7 +200,6 @@ module.exports.run = async ({
         const allThread =
             global.data.allThreadID || [];
 
-
         for (const idThread of allThread) {
 
             if (
@@ -176,17 +209,14 @@ module.exports.run = async ({
                 continue;
             }
 
-
             try {
 
                 const randomID =
                     generateMessageID();
 
-
                 const finalMessage =
                     `${global.sendNotiMessage}\n\n` +
                     `[ID: ${randomID}]`;
-
 
                 await new Promise(
                     (resolve) => {
@@ -199,7 +229,6 @@ module.exports.run = async ({
 
                     }
                 );
-
 
             } catch (error) {
 
@@ -216,7 +245,7 @@ module.exports.run = async ({
 
 
     // ========================================
-    // AUTO SEND
+    // AUTO SEND EVERY 1 SECOND
     // ========================================
 
     global.sendNotiInterval =
