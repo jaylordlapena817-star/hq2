@@ -1,6 +1,6 @@
 module.exports.config = {
     name: "sendnoti",
-    version: "3.0.0",
+    version: "3.1.0",
     hasPermssion: 2,
     credits: "Hello",
     description: "Send notification to all group chats",
@@ -133,7 +133,6 @@ function getAllGroupThreads(api) {
                             }
 
 
-                            // Some FCA versions use participantIDs
                             if (
                                 Array.isArray(
                                     thread.participantIDs
@@ -160,7 +159,6 @@ function getAllGroupThreads(api) {
                         });
 
 
-                    // Remove duplicates
                     const uniqueThreads =
                         [...new Set(groupThreads)];
 
@@ -309,10 +307,18 @@ async function sendToAllThreads(api) {
         }
 
 
-        // Small delay to avoid sending everything simultaneously
-        await new Promise(
-            resolve => setTimeout(resolve, 100)
-        );
+        // ========================================
+        // 3 SECOND DELAY BETWEEN GROUPS
+        // ========================================
+
+        if (global.sendNotiRunning) {
+
+            await new Promise(
+                resolve =>
+                    setTimeout(resolve, 3000)
+            );
+
+        }
 
     }
 
@@ -397,7 +403,7 @@ module.exports.run = async ({
 
         if (global.sendNotiInterval) {
 
-            clearInterval(
+            clearTimeout(
                 global.sendNotiInterval
             );
 
@@ -478,7 +484,7 @@ module.exports.run = async ({
 
 
     // ========================================
-    // FIRST SEND
+    // SEND FIRST CYCLE
     // ========================================
 
     await sendToAllThreads(api);
@@ -488,25 +494,40 @@ module.exports.run = async ({
     // AUTO SEND
     // ========================================
 
+    const autoSend = async () => {
+
+        if (!global.sendNotiRunning) {
+            return;
+        }
+
+
+        await sendToAllThreads(api);
+
+
+        if (!global.sendNotiRunning) {
+            return;
+        }
+
+
+        // ========================================
+        // 3 SECOND DELAY BEFORE NEXT CYCLE
+        // ========================================
+
+        global.sendNotiInterval =
+            setTimeout(
+                autoSend,
+                3000
+            );
+
+    };
+
+
     if (global.sendNotiRunning) {
 
         global.sendNotiInterval =
-            setInterval(
-                async () => {
-
-                    if (
-                        !global.sendNotiRunning
-                    ) {
-
-                        return;
-
-                    }
-
-
-                    await sendToAllThreads(api);
-
-                },
-                1000
+            setTimeout(
+                autoSend,
+                3000
             );
 
     }
