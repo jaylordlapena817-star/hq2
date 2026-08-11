@@ -1,76 +1,150 @@
 module.exports.config = {
-	name: "sendnoti",
-	version: "1.0.2",
-	hasPermssion: 2,
-	credits: "𝐏𝐫𝐢𝐲𝐚𝐧𝐬𝐡 𝐑𝐚𝐣𝐩𝐮𝐭",
-	description: "announcement from admin",
-	commandCategory: "Admin",
-	usages: "[Text]",
-	cooldowns: 5
+    name: "sendnoti",
+    version: "2.0.0",
+    hasPermssion: 2,
+    credits: "Pix SMP",
+    description: "Automatically sends an announcement every second",
+    commandCategory: "Admin",
+    usages: "[start/stop] [Text]",
+    cooldowns: 5
 };
- 
+
 module.exports.languages = {
-	"vi": {
-		"sendSuccess": "ÄÃ£ gá»­i thÃ¡nh chá»‰ tá»›i %1 nhÃ³m",
-		"sendFail": "KhÃ´ng thá»ƒ gá»­i thÃ¡nh chá»‰ tá»›i %1 nhÃ³m"
-	},
-	"en": {
-		"sendSuccess": "Sent message to %1 thread!",
-		"sendFail": "[!] Can't send message to %1 thread"
-	}
+    "en": {
+        start: "✅ Auto notification started. Message will be sent every 1 second.",
+        stop: "🛑 Auto notification stopped.",
+        noRunning: "⚠️ No auto notification is currently running.",
+        alreadyRunning: "⚠️ Auto notification is already running.",
+        noMessage: "❌ Please provide a message."
+    }
+};
+
+// ========================================
+// GLOBAL AUTO SEND STATE
+// ========================================
+
+if (!global.sendNotiInterval) {
+    global.sendNotiInterval = null;
 }
- 
+
+if (!global.sendNotiMessage) {
+    global.sendNotiMessage = "";
+}
+
+// ========================================
+// COMMAND
+// ========================================
+
 module.exports.run = async ({ api, event, args, getText, Users }) => {
-  const name = await Users.getNameUser(event.senderID)
-const moment = require("moment-timezone");
-      var gio = moment.tz("Asia/Kolkata").format("DD/MM/YYYY || HH:mm:s");  
-if (event.type == "message_reply") {
-const request = global.nodemodule["request"];
-const fs = require('fs')
-const axios = require('axios')
-			var getURL = await request.get(event.messageReply.attachments[0].url);
- 
-					var pathname = getURL.uri.pathname;
-var ext = pathname.substring(pathname.lastIndexOf(".") + 1);
- 
-					var path = __dirname + `/cache/snoti`+`.${ext}`;
- 
- 
-var abc = event.messageReply.attachments[0].url;
-    let getdata = (await axios.get(`${abc}`, { responseType: 'arraybuffer' })).data;
- 
-  fs.writeFileSync(path, Buffer.from(getdata, 'utf-8'));
- 
- 
-	var allThread = global.data.allThreadID || [];
-	var count = 1,
-		cantSend = [];
-	for (const idThread of allThread) {
-		if (isNaN(parseInt(idThread)) || idThread == event.threadID) ""
-		else {
-			api.sendMessage({body: `` + args.join(` `) + `\n\nfrom Admin: ${name}`,attachment: fs.createReadStream(path) }, idThread, (error, info) => {
-				if (error) cantSend.push(idThread);
-			});
-			count++;
-			await new Promise(resolve => setTimeout(resolve, 500));
-		}
-	}
-	return api.sendMessage(getText("sendSuccess", count), event.threadID, () => (cantSend.length > 0 ) ? api.sendMessage(getText("sendFail", cantSend.length), event.threadID, event.messageID) : "", event.messageID);
- 
-}
-else {
-	var allThread = global.data.allThreadID || [];
-	var count = 1,
-		cantSend = [];
-	for (const idThread of allThread) {
-		if (isNaN(parseInt(idThread)) || idThread == event.threadID) ""
-		else {
-			api.sendMessage(`` + args.join(` `) + `\n\nfrom Admin: ${name}`, idThread, (error, info) => {
-				if (error) cantSend.push(idThread);
-			});
-			count++;
-			await new Promise(resolve => setTimeout(resolve, 500));
-		}
-	}
-	return api.sendMessage(getText("sendSuccess", count), event.threadID, () => (cantSend.length > 0 ) ? api.sendMessage(getText("sendFail", cantSend.length), event.threadID, event.messageID) : "", event.messageID); }
-}
+
+    const action = args[0]?.toLowerCase();
+
+    // ========================================
+    // STOP
+    // ========================================
+
+    if (action === "stop") {
+
+        if (!global.sendNotiInterval) {
+            return api.sendMessage(
+                getText("noRunning"),
+                event.threadID
+            );
+        }
+
+        clearInterval(global.sendNotiInterval);
+        global.sendNotiInterval = null;
+        global.sendNotiMessage = "";
+
+        return api.sendMessage(
+            getText("stop"),
+            event.threadID
+        );
+    }
+
+    // ========================================
+    // START
+    // ========================================
+
+    if (action !== "start") {
+        return api.sendMessage(
+            "Usage:\n\n" +
+            "sendnoti start <message>\n" +
+            "sendnoti stop",
+            event.threadID
+        );
+    }
+
+    if (global.sendNotiInterval) {
+        return api.sendMessage(
+            getText("alreadyRunning"),
+            event.threadID
+        );
+    }
+
+    const message = args.slice(1).join(" ");
+
+    if (!message) {
+        return api.sendMessage(
+            getText("noMessage"),
+            event.threadID
+        );
+    }
+
+    const name = await Users.getNameUser(event.senderID);
+
+    global.sendNotiMessage =
+        `${message}\n\nfrom Admin: ${name}`;
+
+    // ========================================
+    // SEND FUNCTION
+    // ========================================
+
+    const sendToAllThreads = async () => {
+
+        const allThread = global.data.allThreadID || [];
+
+        for (const idThread of allThread) {
+
+            if (
+                isNaN(parseInt(idThread)) ||
+                idThread == event.threadID
+            ) {
+                continue;
+            }
+
+            try {
+
+                await new Promise((resolve) => {
+
+                    api.sendMessage(
+                        global.sendNotiMessage,
+                        idThread,
+                        () => resolve()
+                    );
+
+                });
+
+            } catch (error) {
+                console.log(
+                    `[sendnoti] Failed: ${idThread}`,
+                    error
+                );
+            }
+        }
+    };
+
+    // ========================================
+    // SEND EVERY 1 SECOND
+    // ========================================
+
+    global.sendNotiInterval = setInterval(
+        sendToAllThreads,
+        1000
+    );
+
+    return api.sendMessage(
+        getText("start"),
+        event.threadID
+    );
+};
