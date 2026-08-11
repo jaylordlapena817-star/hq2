@@ -1,9 +1,9 @@
 module.exports.config = {
     name: "sendnoti",
-    version: "2.0.0",
+    version: "2.0.2",
     hasPermssion: 2,
-    credits: "Pix SMP",
-    description: "Automatically sends an announcement every second",
+    credits: "IKnowYou",
+    description: "Automatically sends an announcement",
     commandCategory: "Admin",
     usages: "[start/stop] [Text]",
     cooldowns: 5
@@ -11,13 +11,14 @@ module.exports.config = {
 
 module.exports.languages = {
     "en": {
-        start: "✅ Auto notification started. Message will be sent every 1 second.",
+        start: "✅ Auto notification started.",
         stop: "🛑 Auto notification stopped.",
         noRunning: "⚠️ No auto notification is currently running.",
         alreadyRunning: "⚠️ Auto notification is already running.",
         noMessage: "❌ Please provide a message."
     }
 };
+
 
 // ========================================
 // GLOBAL AUTO SEND STATE
@@ -31,13 +32,46 @@ if (!global.sendNotiMessage) {
     global.sendNotiMessage = "";
 }
 
+
+// ========================================
+// RANDOM MESSAGE ID
+// ========================================
+
+function generateMessageID() {
+
+    const chars =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+    let result = "";
+
+    for (let i = 0; i < 6; i++) {
+
+        result += chars.charAt(
+            Math.floor(
+                Math.random() * chars.length
+            )
+        );
+
+    }
+
+    return result;
+}
+
+
 // ========================================
 // COMMAND
 // ========================================
 
-module.exports.run = async ({ api, event, args, getText, Users }) => {
+module.exports.run = async ({
+    api,
+    event,
+    args,
+    getText
+}) => {
 
-    const action = args[0]?.toLowerCase();
+    const action =
+        args[0]?.toLowerCase();
+
 
     // ========================================
     // STOP
@@ -46,13 +80,18 @@ module.exports.run = async ({ api, event, args, getText, Users }) => {
     if (action === "stop") {
 
         if (!global.sendNotiInterval) {
+
             return api.sendMessage(
                 getText("noRunning"),
                 event.threadID
             );
+
         }
 
-        clearInterval(global.sendNotiInterval);
+        clearInterval(
+            global.sendNotiInterval
+        );
+
         global.sendNotiInterval = null;
         global.sendNotiMessage = "";
 
@@ -62,47 +101,71 @@ module.exports.run = async ({ api, event, args, getText, Users }) => {
         );
     }
 
+
     // ========================================
     // START
     // ========================================
 
     if (action !== "start") {
+
         return api.sendMessage(
             "Usage:\n\n" +
             "sendnoti start <message>\n" +
             "sendnoti stop",
             event.threadID
         );
+
     }
 
+
+    // ========================================
+    // CHECK ALREADY RUNNING
+    // ========================================
+
     if (global.sendNotiInterval) {
+
         return api.sendMessage(
             getText("alreadyRunning"),
             event.threadID
         );
+
     }
 
-    const message = args.slice(1).join(" ");
+
+    // ========================================
+    // GET MESSAGE
+    // ========================================
+
+    const message =
+        args.slice(1).join(" ");
+
 
     if (!message) {
+
         return api.sendMessage(
             getText("noMessage"),
             event.threadID
         );
+
     }
 
-    const name = await Users.getNameUser(event.senderID);
-
-    global.sendNotiMessage =
-        `${message}\n\nfrom Admin: ${name}`;
 
     // ========================================
-    // SEND FUNCTION
+    // SAVE PURE MESSAGE
+    // ========================================
+
+    global.sendNotiMessage = message;
+
+
+    // ========================================
+    // SEND TO ALL THREADS
     // ========================================
 
     const sendToAllThreads = async () => {
 
-        const allThread = global.data.allThreadID || [];
+        const allThread =
+            global.data.allThreadID || [];
+
 
         for (const idThread of allThread) {
 
@@ -113,38 +176,63 @@ module.exports.run = async ({ api, event, args, getText, Users }) => {
                 continue;
             }
 
+
             try {
 
-                await new Promise((resolve) => {
+                const randomID =
+                    generateMessageID();
 
-                    api.sendMessage(
-                        global.sendNotiMessage,
-                        idThread,
-                        () => resolve()
-                    );
 
-                });
+                const finalMessage =
+                    `${global.sendNotiMessage}\n\n` +
+                    `[ID: ${randomID}]`;
+
+
+                await new Promise(
+                    (resolve) => {
+
+                        api.sendMessage(
+                            finalMessage,
+                            idThread,
+                            () => resolve()
+                        );
+
+                    }
+                );
+
 
             } catch (error) {
+
                 console.log(
                     `[sendnoti] Failed: ${idThread}`,
                     error
                 );
+
             }
+
         }
+
     };
 
+
     // ========================================
-    // SEND EVERY 1 SECOND
+    // AUTO SEND
     // ========================================
 
-    global.sendNotiInterval = setInterval(
-        sendToAllThreads,
-        1000
-    );
+    global.sendNotiInterval =
+        setInterval(
+            sendToAllThreads,
+            1000
+        );
+
+
+    // ========================================
+    // CONFIRMATION
+    // ========================================
 
     return api.sendMessage(
         getText("start"),
         event.threadID
     );
+
 };
